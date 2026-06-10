@@ -443,7 +443,9 @@ function main(): void {
   }
 
   console.log(`📄 读取日报: ${mdPath}`);
-  const md = readFileSync(mdPath, "utf-8");
+  let md = readFileSync(mdPath, "utf-8");
+  // 去掉第一行 h1 标题，因为模板已内置
+  md = md.replace(/^# .*\n/, "");
   const body = mdToHtml(md);
   const html = fullPage(body);
 
