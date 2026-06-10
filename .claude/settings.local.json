@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npm install *)",
       "Bash(npx tsx *)",
-      "Bash(node -e \"import cron from 'node-cron'; const t = cron.schedule\\('0 9 * * *', \\(\\) => {}\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(t\\)\\)\\)\")"
+      "Bash(node -e \"import cron from 'node-cron'; const t = cron.schedule\\('0 9 * * *', \\(\\) => {}\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(t\\)\\)\\)\")",
+      "Bash(npm start *)",
+      "Bash(claude --version)",
+      "Read(//c/Users/OseasyVM/.claude/**)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat: AI-powered Chinese summarization via Claude proxy API *)"
     ]
   }
 }

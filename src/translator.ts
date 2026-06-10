@@ -67,25 +67,30 @@ async function translateWithConcurrency(
 export async function translateArticles(
   articles: Article[],
 ): Promise<Article[]> {
-  // 构建待翻译文本列表 (标题 + 摘要)
-  const titleTasks = articles.map((a, i) => ({
-    text: a.title,
-    index: i,
-  }));
+  // 标题：只翻译还没有中文标题的
+  const titleTasks = articles
+    .map((a, i) => ({ text: a.title, index: i }))
+    .filter((t) => !articles[t.index].titleZh);
+
+  // 摘要：只翻译还没有中文摘要的（AI 摘要已设则跳过）
   const summaryTasks = articles
     .map((a, i) => ({ text: a.summary, index: i }))
-    .filter((t) => isTranslatable(t.text));
+    .filter((t) => !articles[t.index].summaryZh && isTranslatable(t.text));
 
-  // 并发翻译（3个并发，间隔200ms）
+  // 并发翻译
   const [titleResults, summaryResults] = await Promise.all([
-    translateWithConcurrency(titleTasks, 3),
-    translateWithConcurrency(summaryTasks, 3),
+    titleTasks.length > 0
+      ? translateWithConcurrency(titleTasks, 3)
+      : Promise.resolve(new Map<number, string>()),
+    summaryTasks.length > 0
+      ? translateWithConcurrency(summaryTasks, 3)
+      : Promise.resolve(new Map<number, string>()),
   ]);
 
-  // 合并结果
+  // 合并结果（保留已有的 AI 摘要）
   return articles.map((article, i) => ({
     ...article,
-    titleZh: titleResults.get(i) ?? "",
-    summaryZh: summaryResults.get(i) ?? "",
+    titleZh: article.titleZh || (titleResults.get(i) ?? ""),
+    summaryZh: article.summaryZh || (summaryResults.get(i) ?? ""),
   }));
 }

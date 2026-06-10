@@ -5,6 +5,7 @@ import { FEEDS } from "./feeds.js";
 import { parseAllFeeds } from "./parser.js";
 import { filterByTime, sortByTime } from "./filter.js";
 import { translateArticles } from "./translator.js";
+import { aiSummarize } from "./ai-summarizer.js";
 import { generateReport } from "./reporter.js";
 import { startDaemon } from "./scheduler.js";
 
@@ -47,9 +48,12 @@ async function runPipeline(nextRunTime?: string): Promise<void> {
   // 5. 按时间降序排序
   const sorted = sortByTime(filtered);
 
-  // 5.5 翻译标题和摘要为中文
+  // 5.3 AI 摘要（用 Claude 生成中文一句话总结）
+  const summarized = await aiSummarize(sorted);
+
+  // 5.5 翻译标题和摘要为中文（已 AI 摘要的自动跳过）
   console.log("🌐 正在翻译...");
-  const translated = await translateArticles(sorted);
+  const translated = await translateArticles(summarized);
   const translatedCount = translated.filter((a) => a.titleZh).length;
   console.log(`🌐 翻译完成: ${translatedCount}/${translated.length} 篇`);
 
