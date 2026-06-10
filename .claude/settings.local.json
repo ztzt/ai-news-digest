@@ -8,7 +8,10 @@
       "Bash(claude --version)",
       "Read(//c/Users/OseasyVM/.claude/**)",
       "Bash(git add *)",
-      "Bash(git commit -m 'feat: AI-powered Chinese summarization via Claude proxy API *)"
+      "Bash(git commit -m 'feat: AI-powered Chinese summarization via Claude proxy API *)",
+      "Bash(gh workflow *)",
+      "Bash(gh secret *)",
+      "Bash(git commit *)"
     ]
   }
 }

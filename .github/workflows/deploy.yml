@@ -35,6 +35,9 @@ jobs:
         run: npm ci
 
       - name: Run news digest
+        env:
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
         run: npm start
 
       - name: Build HTML page
