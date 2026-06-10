@@ -128,6 +128,8 @@ function mdToHtml(md: string): string {
 
 /** 完整的 HTML 模板 */
 function fullPage(body: string): string {
+  const repo = "ztzt/ai-news-digest";
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -148,6 +150,9 @@ function fullPage(body: string): string {
       --blockquote-border: #22c55e;
       --hr-color: #e5e7eb;
       --code-bg: #f1f5f9;
+      --btn-bg: #2563eb;
+      --btn-text: #fff;
+      --btn-hover: #1d4ed8;
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -163,6 +168,9 @@ function fullPage(body: string): string {
         --blockquote-border: #4ade80;
         --hr-color: #334155;
         --code-bg: #1e293b;
+        --btn-bg: #3b82f6;
+        --btn-text: #fff;
+        --btn-hover: #2563eb;
       }
     }
 
@@ -178,10 +186,16 @@ function fullPage(body: string): string {
       margin: 0 auto;
     }
 
-    h1 {
-      font-size: 1.8rem;
-      margin-bottom: 0.5rem;
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 0.25rem;
     }
+
+    h1 { font-size: 1.8rem; }
 
     hr {
       border: none;
@@ -267,13 +281,155 @@ function fullPage(body: string): string {
       color: var(--text-secondary);
       font-size: 0.85rem;
     }
+
+    /* 刷新按钮 */
+    #refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      transition: opacity 0.2s, transform 0.2s;
+      white-space: nowrap;
+    }
+    #refresh-btn:hover:not(:disabled) { opacity: 0.9; transform: scale(1.02); }
+    #refresh-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    #refresh-btn .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    #refresh-btn.loading .spinner { display: inline-block; }
+    #refresh-btn.loading .btn-icon { display: none; }
+
+    #hint-text {
+      display: none;
+      margin-top: 0.25rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
   </style>
 </head>
 <body>
+
+<div class="header-row">
+  <h1>🤖 AI 新闻日报</h1>
+  <div style="text-align:right">
+    <button id="refresh-btn" title="实时更新">
+      <span class="btn-icon">🔄</span>
+      <span class="spinner"></span>
+      <span class="btn-text">刷新</span>
+    </button>
+    <div id="hint-text"></div>
+  </div>
+</div>
+
 ${body}
+
 <footer>
   <p>🤖 AI News Digest — 每日自动更新 | 数据来源: TechCrunch AI · The Verge AI · Hacker News</p>
 </footer>
+
+<script>
+(function() {
+  const REPO = "${repo}";
+  const DISPATCH_URL = "https://github.com/" + REPO + "/actions/workflows/deploy.yml";
+  const POLL_INTERVAL = 10000; // 每 10 秒轮询
+
+  const btn = document.getElementById("refresh-btn");
+  const hintEl = document.getElementById("hint-text");
+  const textEl = btn.querySelector(".btn-text");
+
+  // 记录当前页面生成时间 (从页面内容解析)
+  const timeMatch = document.body.innerText.match(/(\\d{2}:\\d{2})\\s+CST/);
+  const pageTime = timeMatch ? timeMatch[1] : "";
+
+  // 轮询检查是否有新的成功部署
+  async function checkForUpdate() {
+    try {
+      const res = await fetch(
+        "https://api.github.com/repos/" + REPO + "/actions/runs?event=workflow_dispatch&status=success&per_page=1"
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.workflow_runs.length) return null;
+      return data.workflow_runs[0];
+    } catch {
+      return null;
+    }
+  }
+
+  function setState(cls, text, hint) {
+    btn.className = cls || "";
+    textEl.textContent = text;
+    if (hintEl) hintEl.textContent = hint || "";
+    if (hintEl) hintEl.style.display = hint ? "block" : "none";
+    btn.disabled = cls !== "";
+  }
+
+  btn.addEventListener("click", async () => {
+    if (btn.disabled) return;
+
+    // 1. 打开 dispatch 页面让用户触发
+    window.open(DISPATCH_URL, "_blank", "noopener");
+
+    // 2. 记录触发前的最近一次成功 run
+    const prevRun = await checkForUpdate();
+    const prevRunId = prevRun ? prevRun.id : null;
+
+    // 3. 开始轮询
+    setState("loading", "等待触发…", "请在打开的页面点击 Run workflow");
+    let attempts = 0;
+    const maxAttempts = 36; // 最多等 6 分钟
+
+    const poll = setInterval(async () => {
+      attempts++;
+      const latest = await checkForUpdate();
+
+      if (latest && latest.id !== prevRunId) {
+        // 新的成功 run 出现了
+        const runTime = new Date(latest.run_started_at);
+        // 确认是本次触发的（5 分钟内启动的）
+        const ageMs = Date.now() - runTime.getTime();
+        if (ageMs < 10 * 60 * 1000) {
+          clearInterval(poll);
+          setState("", "✅ 刷新中…", "");
+          setTimeout(() => location.reload(), 1000);
+          return;
+        }
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        setState("", "超时", "请手动刷新页面或重试");
+        return;
+      }
+
+      // 更新状态提示
+      const mins = Math.floor(attempts * POLL_INTERVAL / 60000);
+      if (attempts < 3) {
+        setState("loading", "等待中…", "请在打开的页面点击 Run workflow");
+      } else {
+        setState("loading", "抓取中…", "已等待 " + mins + " 分钟…");
+      }
+    }, POLL_INTERVAL);
+  });
+})();
+</script>
 </body>
 </html>`;
 }

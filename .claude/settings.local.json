@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tsx *)",
+      "Bash(node -e \"import cron from 'node-cron'; const t = cron.schedule\\('0 9 * * *', \\(\\) => {}\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(t\\)\\)\\)\")"
+    ]
+  }
+}
